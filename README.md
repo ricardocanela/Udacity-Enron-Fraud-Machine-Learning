@@ -36,6 +36,10 @@ The dataset is a dictionary of dictionaries, with the keys being 146 Enron emplo
 ```
 In the features, the boolean poi denotes whether the person is a person of interest or not. The Poi_count function shows that there are 18 such people in the dataset, and the aim of this project is to find distinguishing features that set these people apart from the others.
 
+I have plotted the number of missing values for each feature, here is the result:
+
+![missing_values](https://i.imgur.com/rYiMMLK.png)
+
 ### Outliers
 Ofcourse, not everyone has data for each feature, and missing data is denoted by 'NaN'. The NaN_count function prints a dictionary sorted in descending order. Using the results of the function, as well as going through the names, I came across the following outliers:
 
@@ -49,37 +53,20 @@ I will remove these outliers (and any others I find) after I complete feature se
 Select K Best and Feature Creation
 There are lots of features available to play with, but as with all lists of features, not all of them are useful in predicting the target variable. My first step is to check the ability of each feature in clearly differentiating between POI and non-POI. To do this, I'm going to use Scikit-Learn's SelectKBest algorithm, which will give me a score for each feature in it's ability to identify the target variable.
 
-In select_k_best.py, the Select_K_Best function returns an array of k tuples in descending order of its score. Running this will show the most useful features and the not-so-useful ones. Running them over all features gives:
+In select_k_best.py, the Select_K_Best function returns an array of k tuples in descending order of its score. Running this will show the most useful features and the not-so-useful ones.
+
+To know the best value of K to use in Select_K_Best, I have plotted a pipeline which runs a DecisionTree with SelectKBest using a GridSearchCV for all 19 present features. The result is that the best K is 4. Here is the plot:
+
+![k_best](https://i.imgur.com/l1Ikrh3.png)
+
+And running the Select_K_Best with K equals 4, these are the selected features:
 
 ```
-[('exercised_stock_options', 25.097541528735491),
- ('total_stock_value', 24.467654047526398),
- ('bonus', 21.060001707536571),
- ('salary', 18.575703268041785),
- ('deferred_income', 11.595547659730601),
- ('long_term_incentive', 10.072454529369441),
- ('restricted_stock', 9.3467007910514877),
- ('total_payments', 8.8667215371077752),
- ('shared_receipt_with_poi', 8.7464855321290802),
- ('loan_advances', 7.2427303965360181),
- ('expenses', 6.2342011405067401),
- ('from_poi_to_this_person', 5.3449415231473374),
- ('other', 4.204970858301416),
- ('from_this_person_to_poi', 2.4265081272428781),
- ('director_fees', 2.1076559432760908),
- ('to_messages', 1.6988243485808501),
- ('deferral_payments', 0.2170589303395084),
- ('from_messages', 0.16416449823428736),
- ('restricted_stock_deferred', 0.06498431172371151)]
- ```
-
-From this I can see that stock based features lead the way, and the leading features are all financial based - the email features are mostly among the bottom half.
-
-The first thing I notice is that 'other' is not very useful and also ambiguous, so it's not a feature I'm going to add to the list.
-
-Also in order to make email features more effective, I'm going to create a new feature called 'poi_email_ratio', which is the sum of the ratio of emails sent to poi over all emails sent and the ratio of emails received from poi over all emails received. Essentially, if every email a person X sent/received was to/from a POI, then their value would 2. And if they sent/received 0 emails to/from a POI, then their value would be 0.
-
-Since stocks are seemingly very good indicators, another feature called 'exercised_stock_ratio' - the ratio of exercised stock options to total stock value. The rationale behind this is that the executives of Enron (and the main POIs) all had huge stock options, and since they knew the company was going to go bankrupt, they exercised those options.
+['shared_receipt_with_poi', 
+'from_poi_to_this_person', 
+'loan_advances', 
+'from_this_person_to_poi']
+```
 
 #### Creating The Features
 
@@ -89,26 +76,28 @@ As explained above, if all a person's emails sent/received were to/from POIs, th
 
 After fixing the error, I ran the `Select_K_Best` function again, and `'poi_email_ratio'` came 5th with a score of 16.2, but unfortunately `'exercised_stock_ratio'` didn't work at all, coming dead last with a score nearly twice as bad as the one before it.
 
+#### Comparing difference with and without created features
+
+To see if the created features has made good changes in our prediction model, a DecisionTree classifier was tested with the 4 original features and then with the new `'poi_email_ratio'` feature, this is the result:
+
+
+| Model                    | Precision | F1 |
+| :----------------------- | --------: | -----: |
+| DecisionTree             | 0.147     | 0.170  |
+| DecisionTree + new feat  | 0.312     | 0.267  |
+
+
 #### Final Feature Selection
 
-The final 14 features to be used for the machine learning process are:
+The final 5 features to be used for the machine learning process are:
 
-| Feature                 | Score  |
-| :---------------------- | -----: |
-| exercised_stock_options | 25.10  |
-| total_stock_value       | 24.47  |
-| bonus                   | 21.06  |
-| salary                  | 18.58  |
-| poi_email_ratio         | 16.24  |
-| deferred_income         | 11.60  |
-| long_term_incentive     | 10.07  |
-| restricted_stock        |  9.35  |
-| total_payments          |  8.87  |
-| shared_receipt_with_poi |  8.75  |
-| loan_advances           |  7.24  |
-| expenses                |  6.23  |
-| from_poi_to_this_person |  5.34  |
-| from_this_person_to_poi |  2.43  |
+```
+['shared_receipt_with_poi', 
+'from_poi_to_this_person', 
+'loan_advances', 
+'from_this_person_to_poi',
+'poi_email_ratio']
+```
 
 #### Feature Scaling
 
@@ -125,7 +114,7 @@ The next step in the process is to try out a number of algorithms to see which o
 
 #### Decision Tree Classifier
 
-Here are the results of using the `DecisionTreeClassifier` while changing the `min_samples_split` parameter over the full feature list (14 features):
+Here are the results of using the `DecisionTreeClassifier` while changing the `min_samples_split` parameter over the  feature list (5 features):
 
 | Min Samples Split | Precision | Recall |
 | :---------------- | --------: | -----: |
@@ -135,7 +124,7 @@ Here are the results of using the `DecisionTreeClassifier` while changing the `m
 | 3                 | 0.296     | 0.274  |
 | 2                 | 0.288     | 0.283  |
 
-
+obs: Its important to make tuning in the parameters and compare the diferent results to maximize your predictor score, since each predictor model has its own hyperparameters and changing them may affect drastically the precision of your model.
 
 ##### With smaller feature lists
 
@@ -170,16 +159,6 @@ Results with full feature list changing number of estimators - `n_estimators`:
 | 75                | 0.446     | 0.317  |
 | 100               | 0.461     | 0.315  |
 
-
-Results with top 8 features:
-
-| No. of Estimators | Precision | Recall |
-| :---------------- | --------: | -----: |
-| 10                | 0.357     | 0.228  |
-| 25                | 0.356     | 0.269  |
-| 50                | 0.355     | 0.291  |
-| 75                | 0.364     | 0.308  |
-| 100               | 0.371     | 0.322  |
 
 These results show that the Adaboost Classifier performs better than the Decision Tree Classifier, but it is much, much more computationally expensive, with the 100 estimators taking a few minutes to run.
 
